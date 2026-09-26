@@ -1,66 +1,42 @@
-use for education test and for my local hotspot
-# AGENTS - WiFi Test Hotspot & Wireless Password Auditor
+# tracker — règles de travail
 
-This directory contains scripts and configurations for auditing wireless networks by testing all combinations of passwords and characters against target hotspots.
+Ce projet sert uniquement à l’audit pédagogique du hotspot local de l’opérateur,
+ou d’un réseau couvert par une autorisation écrite explicite. Aucun test ne doit
+viser un réseau tiers.
 
-## Components
+## Composants
 
-### Password Generator
-- `scripts/gen_passwords.py` — Generates all possible password combinations from a given character set up to a configurable max length.
-- Supports configurable character sets: alphanumeric, special chars, or custom.
+- `scripts/scan_wifi.sh [interface]` liste les points d’accès visibles.
+- `scripts/gen_passwords.py` produit paresseusement des candidats sur stdout.
+- `scripts/auth_test.py` teste un flux de candidats sur un SSID autorisé, après
+  résolution et vérification du BSSID. Il ne capture pas de handshake.
+- `scripts/attack.sh [interface]` orchestre le flux interactif et exige une
+  confirmation d’autorisation avant tout essai d’authentification.
+- `scripts/local_ui.py` sert un tableau de bord limité à `127.0.0.1:8765`.
 
-### Wireless Scanner
-- `scripts/scan_wifi.sh` — Scans for available wireless hotspots and lists SSIDs with signal strength and encryption type.
-
-### Auth Tester
-- `scripts/auth_test.py` — Attempts authentication against a target WPA/WPA2 hotspot using generated password combinations.
-- Supports handshake capture and verification.
-
-### Attack Launcher (Full Workflow)
-- `scripts/attack.sh` — Interactive script that scans, lets you select an AP, then launches the brute-force attack.
-- Automates: scan → select → configure → attack.
-
-### Configuration
-- `config/settings.yml` — Configure target SSID, character set, min/max password length, timeout, and interface.
-
-## Dependencies
+## Installation et usage
 
 ```bash
-pip install -r requirements.txt              # Python deps (pywifi)
-sudo apt install wireless-tools              # Linux: iwlist for scan_wifi.sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+sudo .venv/bin/python scripts/auth_test.py --help
+sudo scripts/scan_wifi.sh wlan0
+sudo scripts/attack.sh wlan0
+python scripts/local_ui.py
 ```
 
-## Usage — Full Workflow
+Le `sudo` est nécessaire uniquement lorsque le pilote ou l’outil de scan le
+requiert. Utiliser explicitement `.venv/bin/python` évite le problème de PATH de
+`sudo`. Ne jamais utiliser `sudo` pour les tests unitaires.
 
-### 1. Lister les points d'accès
-```bash
-sudo ./scripts/scan_wifi.sh [interface]
-```
+## Garanties de sécurité
 
-### 2. Lancer l'attaque complète (scan → sélection → bruteforce)
-```bash
-sudo ./scripts/attack.sh [interface]
-```
-- Scanne les réseaux disponibles
-- Vous choisissez le SSID cible
-- Configurez le charset, la longueur, la limite
-- Lance la génération + test automatiquement
+`auth_test.py` respecte `--interface`, ne supprime aucun profil réseau, réutilise
+un seul profil temporaire, vérifie le BSSID associé avant d’annoncer un succès,
+et applique un backoff borné après les échecs. Les diagnostics vont sur stderr;
+seul le mot de passe trouvé va sur stdout. Le générateur conserve la gestion de
+SIGPIPE.
 
-### 3. En une ligne (génération + test direct)
-```bash
-./scripts/auth_test.py --ssid "<SSID>" --charset all --min 8 --max 8 --limit 1000
-```
-
-## Exemple complet
-```bash
-# 1. Scanner
-sudo ./scripts/scan_wifi.sh wlan0
-
-# 2. Voir le SSID cible, puis lancer le dictionnaire
-./scripts/gen_passwords.py --charset all --min 8 --max 8 | \
-  sudo ./scripts/auth_test.py --ssid "MonWiFi" --interface wlan0
-```
-
-## Safety & Legal
-
-Only use on networks you own or have explicit written permission to test. Unauthorised wireless testing is illegal in most jurisdictions.
+Les tests sont hors ligne et utilisent une couche Wi-Fi simulée. Ne pas lancer
+les scripts d’authentification contre un réseau réel comme test automatisé.

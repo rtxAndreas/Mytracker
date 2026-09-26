@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+INTERFACE="${1:-wlan0}"
+
 if command -v nmcli &>/dev/null; then
-    nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list 2>/dev/null | while IFS=: read -r ssid signal enc; do
+    if ! nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list ifname "$INTERFACE" 2>/dev/null | while IFS=: read -r ssid signal enc; do
         [ -z "$ssid" ] && continue
         printf "%-30s  %-5s  %s\n" "$ssid" "$signal" "$enc"
-    done | sort -k2 -rn
+    done | sort -k2 -rn; then
+        echo "error: interface $INTERFACE could not be scanned" >&2
+        exit 1
+    fi
     exit 0
 fi
-
-INTERFACE="${1:-wlan0}"
 
 if ! command -v iwlist &>/dev/null; then
     echo "error: neither nmcli nor iwlist found (install wireless-tools or NetworkManager)" >&2
@@ -22,7 +25,7 @@ if ! ip link show "$INTERFACE" &>/dev/null; then
 fi
 
 echo "[*] Scanning on $INTERFACE ..." >&2
-sudo iwlist "$INTERFACE" scan 2>/dev/null | awk '
+iwlist "$INTERFACE" scan 2>/dev/null | awk '
 /ESSID/ {
     gsub(/.*ESSID:"|"/, "")
     ssid = $0

@@ -22,7 +22,7 @@ SSIDS=()
 if command -v nmcli &>/dev/null; then
     while IFS=: read -r ssid signal enc; do
         [ -n "$ssid" ] && SSIDS+=("$ssid")
-    done < <(nmcli -t -f SSID,SIGNAL dev wifi list 2>/dev/null)
+    done < <(nmcli -t -f SSID,SIGNAL dev wifi list ifname "$INTERFACE" 2>/dev/null)
 fi
 
 if [ ${#SSIDS[@]} -eq 0 ]; then
@@ -40,6 +40,12 @@ select TARGET in "${SSIDS[@]}"; do
         echo "[-] Invalid selection, try again."
     fi
 done
+
+read -r -p "Confirm that '$TARGET' belongs to you or you have explicit written permission to test it [yes/no]: " AUTHORIZED
+if [[ "${AUTHORIZED,,}" != "yes" ]]; then
+    echo "[-] Authorization confirmation required; stopping without any authentication attempt." >&2
+    exit 1
+fi
 
 read -r -p "[*] Charset preset [all]: " CHARSET
 CHARSET="${CHARSET:-all}"
